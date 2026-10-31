@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  CANCELED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  emailVerified Boolean @default(false)
+  image         String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  categories   Category[]
+  transactions Transaction[]
+  budgets      Budget[]
+  goals        Goal[]
+  sessions     Session[]
+  accounts     Account[]
+}
+
+model Category {
+  id         String          @id @default(cuid())
+  userId     String
+  name       String
+  type       TransactionType
+  color      String?
+  isArchived Boolean         @default(false)
+  createdAt  DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime        @updatedAt @db.Timestamptz(3)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@unique([userId, name, type])
+  @@unique([id, userId, type])
+  @@unique([id, userId])
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  userId      String
+  categoryId  String
+  type        TransactionType
+  description String
+  amount      Decimal         @db.Decimal(14, 2)
+  date        DateTime        @db.Date
+  notes       String?
+  createdAt   DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId, userId, type], references: [id, userId, type], onDelete: Restrict)
+
+  @@index([userId, date])
+  @@index([userId, categoryId, date])
+  @@index([userId, type, date])
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  userId      String
+  categoryId  String
+  month       DateTime @db.Date
+  limitAmount Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month])
+}
+
+model Goal {
+  id           String     @id @default(cuid())
+  userId       String
+  name         String
+  targetAmount Decimal    @db.Decimal(14, 2)
+  targetDate   DateTime?  @db.Date
+  status       GoalStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+
+  @@unique([id, userId])
+  @@index([userId, status])
+}
+
+model GoalContribution {
+  id        String   @id @default(cuid())
+  goalId    String
+  userId    String
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime @db.Date
+  note      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  goal Goal @relation(fields: [goalId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@index([goalId])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+}
